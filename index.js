@@ -7,7 +7,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 var app = express();
 const bcrypt = require("bcrypt");
-const { userInfo } = require("os");
+const { Console } = require("console");
 SALT_ROUNDS = 10;
 app.use(bodyParser.json());
 //what is it doing here
@@ -27,17 +27,19 @@ app.listen(PORT, () => {
   console.log("Server listening on http://localhost:" + PORT);
 });
 
-let emailSchema = z
-  .string()
-  .min(2, { message: "Must be 2 or more characters long" });
-
-let passwordSchema = z
-  .string()
-  .min(2, { message: "Must be 2 or more characters long" });
+const userSchema = z.object({
+  email: z.string().min(2, {
+    message: "Must be 2 or more characters long",
+  }),
+  password: z.string().min(2, { message: "Must be 2 or more characters long" }),
+});
 function validateSignUp(body) {
-  let email = String(emailSchema.parse(body.email));
-  let password = String(passwordSchema.parse(body.password));
-  return { email: email, password: password };
+  try {
+    const user = userSchema.parse(body);
+    return [null, user];
+  } catch (error) {
+    return [error, null];
+  }
 }
 function hashPassword(password) {
   return bcrypt.hashSync(password, SALT_ROUNDS);
@@ -49,22 +51,50 @@ function createUser(userInfo) {
 }
 
 app.post("/signup", async (req, res) => {
-  //try {
-  let userInfo = validateSignUp(req.body);
+  let [validationError, userInfo] = validateSignUp(req.body);
+  if (validationError) {
+    return res.status(400).json({
+      message: "Validation Error",
+      issues: validationError.issues,
+    });
+  }
   const user = await createUser(userInfo);
-  //   console.log(addedInfo);
   res
     .status(201)
     .json({ message: "New user added to database", user: { id: user.id } });
-  // } catch (error) {
-  //   console.log(error.issues, error.name);
+});
+app.post("/login", (req, res) => {
+  // handle login here
+  let email = String(req.body.email);
+  let password = String(req.body.password);
+  let hash = bcrypt.hashSync(password, SALT_ROUNDS);
+  //console.log(email);
 
-  //   if (error.name === "ZodError") {
-  //     return res
-  //       .status(400)
-  //       .json({ message: "validation error", errors: error.issues });
-  //   } else {
-  //     return res.status(500).json({ message: "Something went wrong sorry!" });
-  //   }
-  // }
+  async function correctUser() {
+    let matchingEmail = await prisma.user.findFirst({
+      where: {
+        email: email,
+      },
+    });
+    //    console.log(matchingEmail.password);
+
+    if (matchingEmail != null) {
+      let matchingPassword = matchingEmail.password;
+      let passwordMatch = bcrypt.compareSync(password, matchingEmail.password);
+      //console.log(passwordMatch);
+      if (passwordMatch === true) {
+        return res.status(200).json({ message: "logged in" });
+      } else if (passwordMatch === false) {
+        return res.status(403).json({ message: "password incorrect" });
+      }
+    } else if (matchingEmail === null) {
+      //console.log("wrong user");
+      return res.status(404).json({ message: "user not found" });
+    }
+  }
+  correctUser();
+});
+
+app.get("/login", (req, res) => {
+  res.render("loginTemplates");
 });

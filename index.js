@@ -34,36 +34,37 @@ let emailSchema = z
 let passwordSchema = z
   .string()
   .min(2, { message: "Must be 2 or more characters long" });
+function validateSignUp(body) {
+  let email = String(emailSchema.parse(body.email));
+  let password = String(passwordSchema.parse(body.password));
+  return { email: email, password: password };
+}
+function hashPassword(password) {
+  return bcrypt.hashSync(password, SALT_ROUNDS);
+}
+function createUser(userInfo) {
+  return prisma.user.create({
+    data: { ...userInfo, password: hashPassword(userInfo.password) },
+  });
+}
 
 app.post("/signup", async (req, res) => {
-  try {
-    //let email = String(req.body.email);
-    let email = String(emailSchema.parse(req.body.email));
-    console.log(email);
-    //let password = String(req.body.password);
-    let password = String(passwordSchema.parse(req.body.password));
-    //console.log(password);
-    let hash = bcrypt.hashSync(password, SALT_ROUNDS);
-    let userInfo = {};
-    userInfo = {
-      Email: email,
-      Password: hash,
-    };
-    // //console.log(hash);
-    let addedInfo = await prisma.userInfo.create({ data: userInfo });
-    console.log(addedInfo);
-    res
-      .status(201)
-      .json({ message: "New user added to database", userInfo: userInfo });
-  } catch (error) {
-    console.log(error.issues, error.name);
+  //try {
+  let userInfo = validateSignUp(req.body);
+  const user = await createUser(userInfo);
+  //   console.log(addedInfo);
+  res
+    .status(201)
+    .json({ message: "New user added to database", user: { id: user.id } });
+  // } catch (error) {
+  //   console.log(error.issues, error.name);
 
-    if (error.name === "ZodError") {
-      return res
-        .status(400)
-        .json({ message: "validation error", errors: error.issues });
-    } else {
-      return res.status(500).json({ message: "Something went wrong sorry!" });
-    }
-  }
+  //   if (error.name === "ZodError") {
+  //     return res
+  //       .status(400)
+  //       .json({ message: "validation error", errors: error.issues });
+  //   } else {
+  //     return res.status(500).json({ message: "Something went wrong sorry!" });
+  //   }
+  // }
 });

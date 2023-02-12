@@ -15,3 +15,10 @@ id        Int     @id @default(autoincrement())
 email     String  
 password  String 
 }
+
+model Session{
+id        Int     @id @default(autoincrement())
+token     String 
+email     String 
+expiry    DateTime 
+}

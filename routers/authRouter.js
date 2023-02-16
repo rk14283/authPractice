@@ -54,7 +54,6 @@ async function createUser(userInfo) {
     const user = await prisma.user.create({
       data: { ...userInfo, password: hashPassword(userInfo.password) },
     });
-    //console.log(user);
     return [null, user];
   } catch (error) {
     return [error, null];
@@ -64,9 +63,6 @@ async function createUser(userInfo) {
 //functions must be outside routes
 router.post("/signup", validate, async (req, res) => {
   const [error, user] = await createUser(req.body);
-  //const user = await createUser(req.body);
-  console.log([error, user]);
-  console.log(user);
 
   if (error) {
     console.log(error, "user exists in the database,so not created!");

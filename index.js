@@ -67,59 +67,9 @@ function isSessionExpired(dateObject) {
 }
 
 app.get("/welcome", authMiddleware, async (req, res) => {
-  //let expiryTime = session.expiry;
-  // if (!req.cookies.session_token) {
-  //   return res.redirect("/login");
-  // }
-
-  // const session = await prisma.session.findFirst({
-  //   where: {
-  //     token: req.cookies["session_token"],
-  //   },
-  // });
-
-  // if (!session) {
-  //   return res.redirect("/login");
-  // }
-  // if (isSessionExpired(session.expiry)) {
-  //   res.redirect("/login");
-
-  //   const deletedUserToken = await prisma.session.delete({
-  //     where: {
-  //       id: session.id,
-  //     },
-  //   });
-  //   return console.log(deletedUserToken);
-  // }
-
   res.send(`Welcome ${req.session.email}!`).end();
 });
 app.get("/profile", authMiddleware, async (req, res) => {
-  // if (!req.cookies.session_token) {
-  //   return res.redirect("/login");
-  // }
-
-  // const session = await prisma.session.findFirst({
-  //   where: {
-  //     token: req.cookies["session_token"],
-  //   },
-  // });
-
-  // if (!session) {
-  //   return res.redirect("/login");
-  // }
-
-  // if (isSessionExpired(session.expiry)) {
-  //   res.redirect("/login");
-
-  //   const deletedUserToken = await prisma.session.delete({
-  //     where: {
-  //       id: session.id,
-  //     },
-  //   });
-  //   return console.log(deletedUserToken);
-  // }
-
   res.send(`Here is your profile`).end();
 });
 app.get("/highscores", authMiddleware, logger, async (req, res) => {

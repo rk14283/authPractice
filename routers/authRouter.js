@@ -14,15 +14,9 @@ const COOKIE_EXPIRATION_TIME_SECONDS = 60;
 
 const router = new Router();
 const prisma = new PrismaClient();
-//router.use(logger);
 
-function mainMiddleWare(req, res, next) {
-  console.log(req.method, req.path);
-  //done;
-  //continue handling the request
-  next();
-}
-async function authMiddleware(req, res, next) {
+function validate(req, res, next) {
+  //console.log(req.body);
   let [validationError, userInfo] = validateSignUp(req.body);
   if (validationError) {
     return res.status(400).json({
@@ -30,41 +24,8 @@ async function authMiddleware(req, res, next) {
       issues: validationError.issues,
     });
   }
-  const user = await createUser(userInfo);
-  res
-    .status(201)
-    .json({ message: "New user added to database", user: { id: user.id } });
-
-  next();
-}
-
-async function loggerMiddleware(req, res, next) {
-  let [validationError, userInfo] = validateSignUp(req.body);
-  if (validationError) {
-    return res.status(400).json({
-      message: "Validation Error",
-      issues: validationError.issues,
-    });
-  }
-  let user = await findUserByEmail(userInfo.email);
-
-  if (user === null) {
-    //Stop if there is no user
-    return res.status(404).json({ message: "user not found" }).end();
-  }
-
-  let passwordMatch = bcrypt.compareSync(userInfo.password, user.password);
-  if (passwordMatch === false) {
-    return res.status(403).json({ message: "password incorrect" }).end();
-  }
-
-  const session = await createSession(user.email);
-
-  res.cookie("session_token", session.token, {
-    expires: new Date(+session.expiry + COOKIE_EXPIRATION_TIME_SECONDS * 1000),
-  });
-  //  return res.redirect("/welcome");
-
+  req.body = userInfo;
+  //console.log(userInfo);
   next();
 }
 
@@ -88,25 +49,36 @@ function validateSignUp(body) {
 function hashPassword(password) {
   return bcrypt.hashSync(password, SALT_ROUNDS);
 }
-function createUser(userInfo) {
-  return prisma.user.create({
-    data: { ...userInfo, password: hashPassword(userInfo.password) },
-  });
+async function createUser(userInfo) {
+  try {
+    const user = await prisma.user.create({
+      data: { ...userInfo, password: hashPassword(userInfo.password) },
+    });
+    //console.log(user);
+    return [null, user];
+  } catch (error) {
+    return [error, null];
+  }
 }
 
 //functions must be outside routes
-router.post("/signup", mainMiddleWare, authMiddleware, async (req, res) => {
-  //   let [validationError, userInfo] = validateSignUp(req.body);
-  //   if (validationError) {
-  //     return res.status(400).json({
-  //       message: "Validation Error",
-  //       issues: validationError.issues,
-  //     });
-  //   }
-  //   const user = await createUser(userInfo);
-  //   res
-  //     .status(201)
-  //     .json({ message: "New user added to database", user: { id: user.id } });
+router.post("/signup", validate, async (req, res) => {
+  const [error, user] = await createUser(req.body);
+  //const user = await createUser(req.body);
+  console.log([error, user]);
+  console.log(user);
+
+  if (error) {
+    console.log(error, "user exists in the database,so not created!");
+    // Return an error response and exit
+    return res
+      .status(400)
+      .json({ message: "A user with this email already exists" });
+  }
+
+  res
+    .status(201)
+    .json({ message: "New user added to database", user: { id: user.id } });
 });
 async function createSession(email) {
   const sessionToken = uuidv4();
@@ -130,33 +102,22 @@ async function findUserByEmail(email) {
   });
   return user;
 }
-//not used anywhere
-function isSessionExpired(dateObject) {
-  return dateObject <= +new Date();
-}
 
-router.post("/login", mainMiddleWare, loggerMiddleware, async (req, res) => {
+router.post("/login", validate, async (req, res) => {
   // handle login here
-  //   let [validationError, userInfo] = validateSignUp(req.body);
-  //   if (validationError) {
-  //     return res.status(400).json({
-  //       message: "Validation Error",
-  //       issues: validationError.issues,
-  //     });
-  //   }
-  //   let user = await findUserByEmail(userInfo.email);
-  //   if (user === null) {
-  //     //Stop if there is no user
-  //     return res.status(404).json({ message: "user not found" }).end();
-  //   }
-  //   let passwordMatch = bcrypt.compareSync(userInfo.password, user.password);
-  //   if (passwordMatch === false) {
-  //     return res.status(403).json({ message: "password incorrect" }).end();
-  //   }
-  //   const session = await createSession(user.email);
-  //   res.cookie("session_token", session.token, {
-  //     expires: new Date(+session.expiry + COOKIE_EXPIRATION_TIME_SECONDS * 1000),
-  //   });
+  let user = await findUserByEmail(req.body.email);
+  if (user === null) {
+    //Stop if there is no user
+    return res.status(404).json({ message: "user not found" }).end();
+  }
+  let passwordMatch = bcrypt.compareSync(req.body.password, user.password);
+  if (passwordMatch === false) {
+    return res.status(403).json({ message: "password incorrect" }).end();
+  }
+  const session = await createSession(user.email);
+  res.cookie("session_token", session.token, {
+    expires: new Date(+session.expiry + COOKIE_EXPIRATION_TIME_SECONDS * 1000),
+  });
   return res.redirect("/welcome");
 });
 
